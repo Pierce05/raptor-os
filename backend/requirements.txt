@@ -1,0 +1,15 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+SQLAlchemy==2.0.35
+psycopg2-binary==2.9.9
+pydantic==2.9.2
+passlib[bcrypt]==1.7.4
+# Pinned directly (not left to passlib's extras resolution): passlib
+# 1.7.4's bcrypt backend runs a self-test against the installed bcrypt
+# package's advertised version string, and that self-test breaks on
+# unpinned bcrypt>=4.1 (passlib was never updated for bcrypt's 4.1
+# version-string change), raising at import/first-use time rather than
+# giving a clear error.
+bcrypt==4.0.1
+itsdangerous==2.2.0
+python-multipart==0.0.9

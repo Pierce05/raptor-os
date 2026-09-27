@@ -1,0 +1,61 @@
+# .dogfood.toml
+#
+# Structure follows the REAL DOGFOOD 2026 run.py source exactly
+# (published at the event's spec page). run.py reads:
+#   cfg["portal"]["base_url"]
+#   cfg["tiers"]["claimed"]           (a list)
+#   cfg["auth"][role]                 (ONE literal header string per role,
+#                                       flat table, not nested sub-tables)
+#   cfg["routes"][name]               (ONE literal, fully-resolved path --
+#                                       run.py does plain string
+#                                       concatenation, base_url +
+#                                       routes[name], with NO templating)
+#
+# [seed_accounts] is NOT read by run.py -- our own bookkeeping so
+# regenerate_dogfood_cookies.py knows which real fixture accounts to log
+# in as. Test/demo account selection is documented in backend/app/seed.py:
+#   organizer : synthesized (not in the fixture)
+#   judge_a   : fixtures.json judges[0] -- has exactly 1 score in the
+#               real file, a genuine example of the sparse-judge
+#               shrinkage case documented in JUDGING.md
+#   judge_b   : fixtures.json judges[1]
+#   participant: fixtures.json teams[0].members[0] -- a real team with
+#               a real submitted project
+# All seeded accounts (judges, team members, organizer) share one fixed
+# password, since the real fixture provides no passwords at all -- see
+# SEED_PASSWORD in seed.py.
+#
+# regenerate_dogfood_cookies.py also resolves judge_a's real seeded user
+# id and patches it into [routes].peer_scores below, since that route
+# needs a real, stable id as a literal path segment. All of this happens
+# automatically on `docker compose up`; there is no manual step.
+
+[portal]
+base_url = "http://localhost:8000"
+
+[tiers]
+claimed = ["T1", "T2"]
+pitch = "A hackathon judging platform with backend-enforced role isolation, explainable normalization, and a tamper-evident audit trail."
+
+[routes]
+gallery      = "/api/gallery"
+submit       = "/api/projects"
+judge_scores = "/api/judge/scores"
+# Needs judge_a's real, stable seeded user id as a literal path segment.
+# Patched automatically by regenerate_dogfood_cookies.py; PENDING here
+# is a placeholder only.
+peer_scores  = "/api/organizer/judges/e13d88025eb742a78ed6d9603d419e9f/scores"
+csv_export   = "/api/organizer/export.csv"
+
+[auth]
+organizer   = "Cookie: session=eyJ1c2VyX2lkIjogIjdmZDA5NjI3NzcwMDQ0ZWNhMmJiZTI4YWMxOGRkMzczIn0=.arjz_w.SBhnzL71F5ZKsYCGJkn8RTlzPc8"
+judge_a   = "Cookie: session=eyJ1c2VyX2lkIjogImUxM2Q4ODAyNWViNzQyYTc4ZWQ2ZDk2MDNkNDE5ZTlmIn0=.arjz_w.lLTgbnw5TIjjAnHeSj_nN9uH-iI"
+judge_b   = "Cookie: session=eyJ1c2VyX2lkIjogIjQ3Y2UyNWRmNzgxZjQwZjBhNmZhMzQ4YWE2ZGNjYzllIn0=.arj0AA.9Q4fNguYvU75z-2Q1nZOwHGdGGA"
+participant   = "Cookie: session=eyJ1c2VyX2lkIjogImMxOWY0YWY5MzZmNTQ4MWNhMWE4YWU0MDVjMDQ2OWEyIn0=.arj0AA.uN6Pccgon8eOpCo2hkad7Ti_350"
+
+# Not read by the real run.py -- see header comment above.
+[seed_accounts]
+organizer   = { email = "organizer@raptor.local", password = "dogfood-seed-2026" }
+judge_a     = { email = "tomas.varga@example.org", password = "dogfood-seed-2026" }
+judge_b     = { email = "wei.lindqvist@example.org", password = "dogfood-seed-2026" }
+participant = { email = "priya1@example.org", password = "dogfood-seed-2026" }

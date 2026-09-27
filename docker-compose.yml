@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: raptor
+      POSTGRES_PASSWORD: raptor
+      POSTGRES_DB: raptor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raptor"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://raptor:raptor@db:5432/raptor
+      SESSION_SECRET: change-me-in-real-deployment
+      FIXTURES_PATH: /app/fixtures.json
+      SEED_ON_START: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/fixtures.json:/app/fixtures.json:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # One-shot: waits for `app` to be healthy, logs in as each seeded
+  # fixture user, and rewrites the cookie fields in .dogfood.toml in
+  # place. Runs automatically on every `docker compose up` so the
+  # cookies the checker reads can never be stale/forgotten manual
+  # pastes. Exits 0 once done; that's expected, not a failure.
+  dogfood-toml:
+    image: python:3.11-slim
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./.dogfood.toml:/workspace/.dogfood.toml
+      - ./scripts/regenerate_dogfood_cookies.py:/workspace/regenerate_dogfood_cookies.py:ro
+    working_dir: /workspace
+    environment:
+      DOGFOOD_BASE_URL: "http://app:8000"
+    command: ["python", "regenerate_dogfood_cookies.py"]
+    restart: "no"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:

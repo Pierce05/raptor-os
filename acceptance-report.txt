@@ -1,0 +1,176 @@
+RAPTOR-OS -- Acceptance Report
+
+Date: 2026-09-27
+Commit: (working tree after merging two divergent fix branches -- see
+         note below)
+
+STATUS: MERGED AND RE-VERIFIED FOR REAL, WITH ONE HONEST GAP.
+-----------------------------------------------------------------------
+Two separate fix passes happened in parallel, in separate sessions, and
+had drifted apart:
+
+  Branch A (this environment, earlier today): fixed .dogfood.toml's
+  structure to match the REAL run.py (flat [auth]/[tiers], not nested
+  per-role tables), fixed three routes that had unusable "{placeholder}"
+  segments the real checker cannot substitute (it does plain string
+  concatenation on [routes] values -- no templating), and pinned
+  bcrypt==4.0.1, which was silently breaking every login (passlib
+  1.7.4's internal self-test trips on bcrypt>=4.1's stricter 72-byte
+  enforcement).
+
+  Branch B (a separate coding session): added GET /api/organizer/event
+  and GET /api/projects/mine (closing two frontend gaps -- the manual
+  event-id paste box and the draft-not-reloading-on-refresh bug), plus
+  an independent, dependency-free proof
+  (scripts/verify_audit_chain_algorithm.py) that the audit chain's
+  row-locking pattern is sound, using raw sqlite3's BEGIN IMMEDIATE,
+  since neither environment has real Postgres access.
+
+  The zip handed off after Branch B did NOT include Branch A's fixes --
+  it had regressed back to the broken .dogfood.toml structure, the
+  unusable route placeholders, and the placeholder fixtures.json. This
+  report covers the two branches merged back together in this pass,
+  plus swapping in the REAL organizer-provided fixtures.json (41
+  projects, 30 judges, 40 teams, 126 scores, 8 tracks) for the first
+  time, which required a full rewrite of app/seed.py -- the previous
+  version was written against a self-invented placeholder shape
+  (top-level "users"/"rubric" keys, tracks as plain strings, projects
+  referencing teams by name) that does not exist anywhere in the real
+  file and would have KeyError'd, or silently produced empty data, on
+  contact with it.
+
+Everything in the T1/T2 section below was actually run against a live
+server seeded from the REAL fixture -- not traced, not simulated.
+
+STILL OWED (cannot be done in this environment, no Docker/Postgres):
+  - `docker compose up` itself, end to end, on real infrastructure.
+  - The audit-chain concurrency test against real Postgres. It fails
+    here on SQLite, exactly as predicted (SQLAlchemy's
+    SELECT...FOR UPDATE is a documented no-op there) -- a SEPARATE,
+    dependency-free proof (scripts/verify_audit_chain_algorithm.py)
+    already demonstrates the underlying locking pattern is sound using
+    raw sqlite3's BEGIN IMMEDIATE, but that is evidence the algorithm
+    is right, not proof that today's actual SQLAlchemy code path
+    behaves identically under real Postgres. Confirm for real tomorrow.
+  - Frontend build/serve (npm install / npm run build were never run
+    in this pass either).
+
+T1 / T2 CHECKS -- REAL RUN, via the REAL run.py (verbatim from the
+official DOGFOOD spec, not the team's own local_acceptance_check.py)
+against a live uvicorn instance (SQLite-backed) seeded from the REAL
+fixtures.json on 2026-09-27:
+
+DOGFOOD 2026 acceptance report
+portal: http://localhost:8000
+claimed: T1 T2
+fixtures: fixtures.json
+
+T1  gallery is public ................. PASS
+T1  project from fixtures shown ....... PASS
+T1  closed event refuses submissions .. PASS
+T2  judge sees own scores ............. PASS
+T2  judge cannot see peer scores ...... PASS
+T2  participant blocked ............... PASS
+T2  csv export works .................. PASS
+
+claimed T1 T2, verified T1 T2
+
+Seed log from that same run (confirms every entity from the real
+fixture actually loaded, not just that the server booted):
+
+  [seed] loading fixtures (sentinel=252896bc45d49fca)
+  [seed] done -- judges=30 teams=40 projects=41 criteria=3
+                  scores=126
+  [seed] test accounts (all share the same seed password):
+    organizer=organizer@raptor.local
+    judge_a=tomas.varga@example.org
+    judge_b=wei.lindqvist@example.org
+    participant=priya1@example.org
+    password='dogfood-seed-2026' for all
+
+Re-run a second time from a clean database to rule out a fluke: same
+41/30/40/126 counts, same 7/7 result. The one earlier false negative
+during this pass was a health-check-readiness timing issue on my end
+(seeding this much real data -- 30 judges, ~100 team members, 41
+projects, 126 scores -- took ~38 seconds in this sandbox; my first
+readiness poll didn't wait long enough), not an application bug. Worth
+flagging as a real risk for tomorrow: confirm docker-compose.yml's
+healthcheck start_period and regenerate_dogfood_cookies.py's
+MAX_WAIT_SECONDS (currently 60s) both comfortably exceed real seed
+time on whatever machine runs it -- 38s here leaves only ~22s of
+margin under the current 60s budget.
+
+Design decisions made seeding the real fixture, defended here and in
+JUDGING.md:
+  - The real fixture has no rubric at all. Scoring dimensions
+    ("functionality", "quality", "innovation") only exist implicitly
+    as the union of criteria keys used across the 126 score entries.
+    seed.py collects that union and creates one RubricCriterion per
+    name, weighted equally. The alternative (guessing organizer-
+    intended weights) has no basis in the data; equal weighting is the
+    only assumption the fixture itself actually supports.
+  - The real fixture has no organizer account, and no passwords for
+    judges or team members at all. One organizer account is
+    synthesized; every real judge/team-member email is given a single
+    shared, fixed seed password (see SEED_PASSWORD in seed.py) --
+    these are fixture/test identities with no real credentials to
+    begin with, not real people's accounts.
+  - No explicit assignment records exist in the fixture. A judge
+    scoring a project implies they were assigned it; seed.py creates
+    one Assignment row per unique (judge, project) pair appearing in
+    `scores`. No additional assignment-only rows were fabricated --
+    the fixture's own uneven review counts (some projects have 2
+    scores, others 5) are already the "awkward case" data; inventing
+    more would misrepresent the source file.
+  - judge_a/judge_b were chosen as the fixture's first two judges
+    (judges[0], judges[1]) rather than arbitrary/synthetic accounts.
+    judge_a (Tomas Varga) happens to have exactly ONE score in the
+    real file -- a genuine, non-contrived example of the sparse-judge
+    shrinkage case documented in JUDGING.md's normalization write-up.
+  - participant was chosen as the first member of the fixture's first
+    team (a real team, NorthKiln, with a real submitted project), so
+    the T1.3 deadline-rejection check exercises "team exists, event is
+    closed" rather than an uninteresting "no team yet" 400.
+
+PYTEST -- REAL RUN, against the same merged codebase (SQLite;
+conftest.py's test fixtures are self-contained and don't depend on the
+real fixtures.json, so this is unaffected by the fixture swap):
+-----------------------------------------------------------------------
+8 passed, 1 failed (test_audit_chain_concurrency.py -- see "STILL OWED"
+above; expected on SQLite, unconfirmed on Postgres)
+
+  PASSED  test_organizer_current_event
+  PASSED  test_judge_forbidden_from_current_event
+  PASSED  test_participant_mine_returns_existing_project
+  PASSED  test_participant_mine_returns_null_with_no_project
+  PASSED  test_unscored_project_appears_flagged
+  PASSED  test_judge_forbidden_from_peer_scores
+  PASSED  test_unauthenticated_forbidden_from_peer_scores
+  PASSED  test_organizer_can_view_peer_scores
+  FAILED  test_concurrent_score_submissions_keep_chain_valid
+
+WHAT TO DO NEXT
+-----------------------------------------------------------------------
+1. `docker compose up` from a clean clone, using this merged tree. This
+   uses the fixed requirements.txt (bcrypt pinned) and the real
+   fixtures.json -- if auth or seeding still fails, something changed;
+   compare against the seed log and pytest results above.
+2. Watch seed time. If it's close to or exceeds 60s on the real
+   machine, bump regenerate_dogfood_cookies.py's MAX_WAIT_SECONDS and
+   docker-compose.yml's healthcheck start_period before relying on
+   either.
+3. Open http://localhost:8080 in a browser -- confirm the gallery loads
+   with real fixture titles, with no manual steps.
+4. Run the REAL run.py (not local_acceptance_check.py) against the
+   Postgres-backed compose stack -- should match the 7/7 above exactly,
+   since none of the fixes are SQLite-specific, but confirm for real.
+5. `cd backend && pytest -v` -- specifically watch
+   test_audit_chain_concurrency.py. This MUST pass against real
+   Postgres for the audit-chain locking claim to be trustworthy.
+6. Log in as organizer@raptor.local / dogfood-seed-2026 and click
+   through Mission Control, the rankings tab (confirm the
+   insufficient_data null-check from earlier holds against 41 real
+   projects, several of which will have fewer than 3 reviews), and
+   Explain This Ranking against a real project.
+7. Only after all of the above are real, not traced, should demo
+   recording or any T3/T4/bonus work begin.
