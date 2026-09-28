@@ -45,10 +45,21 @@ export const api = {
   submitScores: (id, scores) => req("POST", `/api/judge/scores/${id}/submit`, { scores }),
 
   currentEvent: () => req("GET", "/api/organizer/event"),
-  runAssignment: (event_id) => req("POST", `/api/organizer/assignments/run?event_id=${event_id}`),
-  dashboard: (event_id) => req("GET", `/api/organizer/dashboard?event_id=${event_id}`),
-  runNormalization: (event_id) => req("POST", `/api/organizer/normalization/run?event_id=${event_id}`),
-  rankings: (event_id) => req("GET", `/api/organizer/rankings?event_id=${event_id}`),
-  audit: (event_id) => req("GET", `/api/organizer/audit?event_id=${event_id}`),
-  exportCsvUrl: (event_id) => `/api/organizer/export.csv?event_id=${event_id}`,
+  runAssignment: (event_id) =>
+    req("POST", `/api/organizer/assignments/run?event_id=${event_id}`),
+  dashboard: (event_id) =>
+    req("GET", `/api/organizer/dashboard?event_id=${event_id}`),
+  runNormalization: (event_id) =>
+    req("POST", `/api/organizer/normalization/run?event_id=${event_id}`),
+  rankings: (event_id) =>
+    req("GET", `/api/organizer/rankings?event_id=${event_id}`),
+  rankingExplanation: (project_id, event_id) =>
+    req(
+      "GET",
+      `/api/organizer/rankings/${project_id}/explain?event_id=${event_id}`
+    ),
+  audit: (event_id) =>
+    req("GET", `/api/organizer/audit?event_id=${event_id}`),
+  exportCsvUrl: (event_id) =>
+    `/api/organizer/export.csv?event_id=${event_id}`,
 };

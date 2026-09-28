@@ -268,6 +268,149 @@ def rankings(
     rows.sort(key=lambda r: (r["final_rank"] is None, r["final_rank"] if r["final_rank"] is not None else 0))
     return {"run_id": latest.id, "rankings": rows}
 
+@router.get("/rankings/{project_id}/explain")
+def explain_ranking(
+    project_id: str,
+    event_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_organizer),
+):
+    event_id = _resolve_event_id(db, event_id)
+
+    latest = db.execute(
+        select(models.NormalizationRun)
+        .where(models.NormalizationRun.event_id == event_id)
+        .order_by(models.NormalizationRun.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if not latest:
+        raise HTTPException(status_code=400, detail="Run normalization first")
+
+    result = latest.results.get(project_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found in normalization run",
+        )
+
+    if result.get("insufficient_data"):
+        return {
+            "run_id": latest.id,
+            "algorithm": latest.algorithm,
+            "parameters": latest.parameters,
+            "project_id": project_id,
+            "result": result,
+            "explanations": [],
+        }
+
+    import statistics
+
+    k = float(latest.parameters["shrinkage_k"])
+    n_min = int(latest.parameters["min_samples"])
+
+    snapshot = latest.input_snapshot
+
+    judge_stats = {}
+    global_values = {}
+
+    for key, values in snapshot.items():
+        judge_id, criterion_id = key.split(":", 1)
+        vals = [float(v) for v in values]
+
+        n = len(vals)
+        judge_stats[(judge_id, criterion_id)] = {
+            "n": n,
+            "mean": statistics.fmean(vals) if n else 0.0,
+            "stdev": statistics.pstdev(vals) if n > 1 else 0.0,
+        }
+
+        global_values.setdefault(criterion_id, []).extend(vals)
+
+    global_stats = {
+        criterion_id: {
+            "mean": statistics.fmean(vals) if vals else 0.0,
+            "stdev": (
+                statistics.pstdev(vals)
+                if len(vals) > 1
+                else 1.0
+            ),
+        }
+        for criterion_id, vals in global_values.items()
+    }
+
+    explanations = []
+
+    # Only explain scores that actually contributed to this project's
+    # normalization result.
+    scores = db.execute(
+        select(models.Score).where(
+            models.Score.project_id == project_id
+        )
+    ).scalars().all()
+
+    for score in scores:
+        key = (score.judge_id, score.criterion_id)
+
+        if key not in judge_stats:
+            continue
+
+        st = judge_stats[key]
+        g = global_stats.get(
+            score.criterion_id,
+            {"mean": 0.0, "stdev": 1.0},
+        )
+
+        n = st["n"]
+
+        if n <= 1:
+            mu = g["mean"]
+            sigma = g["stdev"] or 1.0
+            mode = "global"
+        else:
+            sigma_adj = (
+                n * st["stdev"] + k * g["stdev"]
+            ) / (n + k)
+
+            if n < n_min:
+                mu = st["mean"]
+                sigma = sigma_adj or 1.0
+                mode = "shrunk"
+            else:
+                mu = st["mean"]
+                sigma = st["stdev"] or sigma_adj or 1.0
+                mode = "judge"
+
+        raw = float(score.value)
+        z = (raw - mu) / sigma if sigma else 0.0
+
+        explanations.append({
+            "judge_id": score.judge_id,
+            "criterion_id": score.criterion_id,
+            "raw_score": raw,
+            "sample_count": n,
+            "judge_mean": round(st["mean"], 6),
+            "judge_stdev": round(st["stdev"], 6),
+            "global_mean": round(g["mean"], 6),
+            "global_stdev": round(g["stdev"], 6),
+            "center": round(mu, 6),
+            "scale": round(sigma, 6),
+            "z_score": round(z, 6),
+            "normalization": mode,
+        })
+
+    explanations.sort(
+        key=lambda x: (x["judge_id"], x["criterion_id"])
+    )
+
+    return {
+        "run_id": latest.id,
+        "algorithm": latest.algorithm,
+        "parameters": latest.parameters,
+        "project_id": project_id,
+        "result": result,
+        "explanations": explanations,
+    }
 
 @router.get("/audit")
 def audit(
