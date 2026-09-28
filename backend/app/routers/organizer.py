@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
+from ..export import build_event_export
 from .. import models
 from ..database import get_db
 from ..deps import require_organizer
@@ -443,6 +444,19 @@ def audit(
         ],
     }
 
+@router.get("/export/event.json")
+def export_event_json(
+    event_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_organizer),
+):
+    event_id = _resolve_event_id(db, event_id)
+
+    event = db.get(models.Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    return build_event_export(db, event)
 
 @router.get("/export.csv")
 def export_csv(

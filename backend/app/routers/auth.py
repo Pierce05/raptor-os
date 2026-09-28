@@ -10,7 +10,7 @@ from ..deps import require_user
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/login")
+@router.post("/login", summary="Log in with email and password; sets the session cookie")
 def login(body: schemas.LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.execute(
         select(models.User).where(models.User.email == body.email)
@@ -21,13 +21,13 @@ def login(body: schemas.LoginRequest, request: Request, db: Session = Depends(ge
     return {"id": user.id, "role": user.role, "display_name": user.display_name}
 
 
-@router.post("/logout")
+@router.post("/logout", summary="Log out and clear the session")
 def logout(request: Request):
     request.session.clear()
     return {"ok": True}
 
 
-@router.get("/me", response_model=schemas.MeResponse)
+@router.get("/me", response_model=schemas.MeResponse, summary="Return the logged-in user")
 def me(user: models.User = Depends(require_user)):
     return schemas.MeResponse(
         id=user.id, email=user.email, role=user.role, display_name=user.display_name

@@ -93,3 +93,35 @@ of `/rankings` and the CSV export instead of raising or vanishing.
   stable distribution across the projects they reviewed; a judge who
   scores very few projects, or whose taste genuinely varies a lot by
   project, will be shrunk more aggressively toward the global scale.
+
+## Community voting (separate from judging)
+
+Community votes never feed the judge scores, normalization, or rankings.
+They are a second, independent signal.
+
+**Semantics.** One `vote` row means "this voter endorses this project". A
+voter can vote for a given project at most once (`UNIQUE(event_id, voter_id,
+project_id)`) and for at most 5 projects in total (`VOTE_CAP_PER_VOTER` in
+`config.py`; it is a constant, not a request parameter). Voters are the
+existing seeded participant and judge accounts; organizers and admins cannot
+vote. Nobody can vote for a project owned by their own team. Duplicate votes
+return 409.
+
+**Window.** The organizer sets `open_at` / `close_at`. State is computed from
+server UTC only: `NOT_CONFIGURED`, `NOT_OPEN`, `OPEN` (open_at <= now <
+close_at), or `CLOSED`. Votes are accepted only while `OPEN`.
+
+**Visibility rule.** One function, `community.can_view_results`, decides:
+organizer/admin always; everyone else (visitors, participants, judges) only
+when the state is `CLOSED`, otherwise a 403. Vote counts do not appear in the
+gallery, project detail, ballot, vote response, comment, or status payloads
+(a test scans them for count-like keys). Note that organizers see live
+counts, so they can influence voters if they choose to.
+
+**Ballot randomization.** To blunt position bias, `GET /api/community/ballot`
+orders projects by `sha256(BALLOT_SEED + event_id + user_id + project_id)`.
+The order is stable for one voter and different across voters. It is
+computed server-side; the client cannot supply an ordering. Anyone who knows
+`BALLOT_SEED` can reproduce every voter's order, so set it in production.
+It is an anti-bias measure, not a secrecy or security mechanism.
+

@@ -4,6 +4,7 @@ import Gallery from "./pages/Gallery";
 import Login from "./pages/Login";
 import ParticipantDashboard from "./pages/ParticipantDashboard";
 import JudgeDeck from "./pages/JudgeDeck";
+import MyRecord from "./pages/MyRecord";
 import OrganizerConsole from "./pages/OrganizerConsole";
 
 function StatusIndicator({ apiOk, checked, auditState }) {
@@ -93,7 +94,10 @@ export default function App() {
           <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>My Project</button>
         )}
         {user?.role === "judge" && (
-          <button className={view === "judge" ? "active" : ""} onClick={() => setView("judge")}>Judge Deck</button>
+          <>
+            <button className={view === "judge" ? "active" : ""} onClick={() => setView("judge")}>Judge Deck</button>
+            <button className={view === "record" ? "active" : ""} onClick={() => setView("record")}>My Record</button>
+          </>
         )}
         {(user?.role === "organizer" || user?.role === "admin") && (
           <button className={view === "organizer" ? "active" : ""} onClick={() => setView("organizer")}>Mission Control</button>
@@ -111,10 +115,11 @@ export default function App() {
       </nav>
 
       <main key={view}>
-        {view === "gallery" && <Gallery />}
+        {view === "gallery" && <Gallery user={user} />}
         {view === "login" && <Login onLogin={(u) => { setUser(u); setView("gallery"); }} />}
         {view === "dashboard" && user?.role === "participant" && <ParticipantDashboard />}
         {view === "judge" && user?.role === "judge" && <JudgeDeck />}
+        {view === "record" && user?.role === "judge" && <MyRecord />}
         {view === "organizer" && (user?.role === "organizer" || user?.role === "admin") && (
           <OrganizerConsole onAuditLoaded={(valid) => setAuditState(valid ? "valid" : "broken")} />
         )}

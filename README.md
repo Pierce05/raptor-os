@@ -79,12 +79,59 @@ place. There is nothing to run by hand. `scripts/generate_dogfood_toml.sh`
 still exists as a manual fallback (prints a single fresh cookie to
 stdout) but isn't part of the normal flow anymore.
 
+## Beyond T2 (not claimed)
+
+`.dogfood.toml` still claims only **T1 and T2**. Everything below is extra,
+built on top, and not part of that claim.
+
+**What exists**
+
+- Community voting (T3-lite): an organizer-set voting window (server UTC),
+  one vote per voter per project with a cap of 5 votes, a per-voter
+  randomized ballot, results hidden until voting closes (organizers always
+  see them), public project comments, and an audit row for every accepted
+  or rejected action. UI: voting strip, Vote / Voted buttons and comments in
+  the Gallery, and a "community" tab in Mission Control.
+- OpenAPI: `/api/openapi.json`, `/api/docs` and `/api/redoc`; the committed
+  copy is `docs/openapi.json` (regenerate with
+  `python3 scripts/export_openapi.py`; a test fails if it drifts). See
+  `API.md`.
+- Event export: `GET /api/organizer/export/event.json` in the
+  `fixtures.json` shape, with a round-trip test (see `DATA-MODEL.md` for
+  what does not survive it).
+- Signed judge participation records: `POST /api/organizer/judge-records`
+  issues one for every judge with at least one submitted review (idempotent;
+  pass `judge_id` to restrict to one). Each record is anchored to its
+  `judge_record.issued` audit event (`audit_seq`, `audit_hash`, both inside the
+  signature). The judge reads theirs at `GET /api/judge/record` or in the
+  **My Record** tab, and anyone can check it at `GET /api/verify/{id}`, which
+  returns name, event, reviews_completed, issued_at, the audit anchor and
+  `signature_valid`, never scores or projects. The signature is an HMAC, so verification is
+  **server-mediated**: only this server holds the key, and a record cannot
+  be verified offline or by a third party without asking this server.
+  Set `RECORD_SIGNING_KEY` (a public dev default is used, with a startup
+  warning, if unset) and `BALLOT_SEED`.
+
+**What is missing**
+
+- Registration and any new roles. Voters are the existing seeded accounts,
+  so this is members voting, not open public voting (see `THREAT-MODEL.md`).
+- Collusion and account-farming defenses, CAPTCHA, email verification.
+- Webhooks, an embeddable widget, PDF output, quadratic or pairwise voting.
+- An organizer UI for issuing judge records (issuing is API only; judges have
+  a **My Record** tab).
+- Offline-verifiable (asymmetric) records.
+- Multi-event support: the app assumes one event per deployment.
+
 ## Repo layout
 
 ```
-backend/        FastAPI monolith (auth, RBAC, scoring, normalization, audit, CSV)
+backend/        FastAPI monolith (auth, RBAC, scoring, normalization, audit, CSV,
+                community voting, event export, signed judge records)
 frontend/       React + Vite UI (gallery, judge deck, organizer console)
-scripts/        Local test harness + cookie generation helper
+scripts/        Local test harness, cookie generation helper, OpenAPI export
+docs/           Committed openapi.json
+API.md          Short API overview
 docker-compose.yml
 .dogfood.toml
 ARCHITECTURE.md

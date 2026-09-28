@@ -12,7 +12,7 @@ from ..deps import require_participant
 router = APIRouter(prefix="/api/teams", tags=["teams"])
 
 
-@router.post("")
+@router.post("", summary="Create a team")
 def create_team(
     body: schemas.TeamCreate,
     db: Session = Depends(get_db),
@@ -26,7 +26,7 @@ def create_team(
     return {"id": team.id, "name": team.name}
 
 
-@router.post("/{team_id}/invite")
+@router.post("/{team_id}/invite", summary="Create a team invitation token")
 def invite(
     team_id: str,
     db: Session = Depends(get_db),
@@ -46,7 +46,7 @@ def invite(
     return {"token": token, "expires_at": invitation.expires_at}
 
 
-@router.post("/join/{token}")
+@router.post("/join/{token}", summary="Join a team with an invitation token")
 def join(
     token: str,
     db: Session = Depends(get_db),

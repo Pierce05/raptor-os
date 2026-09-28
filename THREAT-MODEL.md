@@ -20,3 +20,33 @@
 
 - DDoS protection / rate limiting (assumed to run behind organizer-controlled infra during judging, not internet-exposed).
 - Multi-tenant isolation between different concurrent events (single-event assumption per deployment, consistent with DOGFOOD's scope).
+
+## Community voting, comments and signed records (beyond T2, not claimed)
+
+**This is members voting, not open public voting.** There is no
+registration and no new role. Only the accounts that already exist (seeded
+judges and team members) can vote or comment. Anyone who can obtain or share
+one of those accounts' credentials can vote as that person.
+
+| Threat | What is (and is not) done |
+|--------|---------------------------|
+| Ballot stuffing by one account | `UNIQUE(event_id, voter_id, project_id)`, a cap of 5 votes per voter, and a window check. Duplicate races are settled by the audit-chain lock plus the unique constraint. |
+| Vote / comment flooding | A rolling 60 s limit counted from stored rows: 5 comments per user, and 10 rejected vote attempts per user (then 429). This only blunts abuse; it does not stop a patient attacker. |
+| Voting for your own team | Rejected (403), audited as `vote.own_team_rejected`. Team membership is whatever the seed data says. |
+| Early results leaking and steering votes | One function decides visibility (see JUDGING.md). Organizers/admins can always see live counts and are trusted not to leak them. |
+| Ballot position bias | Per-voter seeded ordering. Not a security control (see JUDGING.md). |
+| Server clock / client clock games | State comes from server UTC only. |
+| Forged or edited judge records | HMAC-SHA256 over the record's public fields plus its id and audit-chain anchor (`audit_seq`, `audit_hash`), so a record can be cross-checked against the audit log entry that issued it. Verification is server-mediated: only the server holds `RECORD_SIGNING_KEY`, so a third party cannot verify offline. Rotating the key invalidates every issued record. The dev default key is public; a startup warning is logged while it is in use. |
+
+**Not prevented.** Collusion (voters agreeing to trade votes) and account
+farming (one person controlling several seeded accounts) are not prevented.
+The caps and rate limits only make casual abuse harder.
+
+**The audit log shows activity; it does not prevent it.** Every accepted and
+rejected vote, comment, window change and record issuance is written to the
+hash chain, which makes after-the-fact tampering detectable and lets an
+organizer inspect suspicious patterns. It does not block anything by itself.
+Comments are stored as plain text and rendered by React as text; there is no
+moderation or deletion tool. Requests for unknown project ids return 404 and
+are not audited.
+

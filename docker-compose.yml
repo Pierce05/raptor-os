@@ -27,6 +27,12 @@ services:
       SESSION_SECRET: change-me-in-real-deployment
       FIXTURES_PATH: /app/fixtures.json
       SEED_ON_START: "true"
+      # DEV DEFAULT. Salts the per-voter ballot order (sha256 of seed + event + user + project).
+      # Change it in any real deployment; changing it reshuffles every voter's ballot.
+      BALLOT_SEED: dev-ballot-seed-change-me
+      # DEV DEFAULT (public in this repo). Keys the HMAC on judge participation records.
+      # Set a real secret before issuing records; rotating it invalidates every issued record.
+      RECORD_SIGNING_KEY: dev-record-signing-key-change-me
     ports:
       - "8000:8000"
     volumes:

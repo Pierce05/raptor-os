@@ -46,3 +46,20 @@ def assert_submission_window_open(db: Session, event_id: str) -> None:
     closes_at = _as_utc_aware(event.submission_closes_at)
     if now < opens_at or now > closes_at:
         raise HTTPException(status_code=403, detail="Submission window is closed")
+
+
+def voting_state(db: Session, event_id: str):
+    """
+    Community voting state, decided ONLY by server UTC:
+    NOT_CONFIGURED | NOT_OPEN | OPEN | CLOSED. Returns (state, window_row).
+    Uses the same naive-datetime helper as the submission window.
+    """
+    w = db.get(models.VotingWindow, event_id)
+    if w is None:
+        return "NOT_CONFIGURED", None
+    now = datetime.now(timezone.utc)
+    if now < _as_utc_aware(w.open_at):
+        return "NOT_OPEN", w
+    if now >= _as_utc_aware(w.close_at):
+        return "CLOSED", w
+    return "OPEN", w

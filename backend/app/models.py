@@ -188,3 +188,51 @@ class NormalizationRun(Base):
     parameters: Mapped[dict] = mapped_column(JSON)
     input_snapshot: Mapped[dict] = mapped_column(JSON)
     results: Mapped[dict] = mapped_column(JSON)
+
+
+# ---- T3-lite community voting (additive; no changes to existing tables) ----
+
+class VotingWindow(Base):
+    __tablename__ = "voting_window"
+    event_id: Mapped[str] = mapped_column(ForeignKey("event.id"), primary_key=True)
+    open_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    close_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Vote(Base):
+    __tablename__ = "vote"
+    __table_args__ = (
+        UniqueConstraint("event_id", "voter_id", "project_id", name="uq_vote_event_voter_project"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    event_id: Mapped[str] = mapped_column(ForeignKey("event.id"))
+    voter_id: Mapped[str] = mapped_column(ForeignKey("user.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("project.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Comment(Base):
+    __tablename__ = "comment"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("project.id"), index=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("user.id"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class JudgeRecord(Base):
+    """T4(c): HMAC-signed judge participation record (issued by an organizer)."""
+    __tablename__ = "judge_record"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    event_id: Mapped[str] = mapped_column(ForeignKey("event.id"))
+    judge_id: Mapped[str] = mapped_column(ForeignKey("user.id"), index=True)
+    judge_name: Mapped[str] = mapped_column(String)
+    event_name: Mapped[str] = mapped_column(String)
+    reviews_completed: Mapped[int] = mapped_column(Integer)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Anchor into the tamper-evident audit chain: seq and payload_hash of the
+    # `judge_record.issued` event written in the same transaction. Both are
+    # covered by the HMAC signature and echoed by the public verify route.
+    audit_seq: Mapped[int] = mapped_column(Integer)
+    audit_hash: Mapped[str] = mapped_column(String)
+    signature: Mapped[str] = mapped_column(String)
