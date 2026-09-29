@@ -122,6 +122,25 @@ export default function OrganizerConsole({ onAuditLoaded }) {
             <button onClick={loadDashboard} disabled={!eventId || busy}>Refresh</button>
             <button onClick={runAssignment} disabled={!eventId || busy}>Run assignment</button>
             <button onClick={runNormalization} disabled={!eventId || busy}>Run normalization</button>
+            <button
+              onClick={async () => {
+                setError(null);
+                setBusy(true);
+                try {
+                  const result = await api.issueJudgeRecords();
+                  setSuccess(
+                    `✓ Judge records issued: ${result.issued?.length || 0} · skipped: ${result.skipped?.length || 0}`
+                  );
+                } catch (e) {
+                  setError(e.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+            >
+              Issue Judge Records
+            </button>
             <a className="btn" href={eventId ? api.exportCsvUrl(eventId) : undefined} aria-disabled={!eventId}>Export CSV ↓</a>
           </div>
 

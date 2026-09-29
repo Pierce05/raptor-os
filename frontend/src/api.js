@@ -188,4 +188,7 @@ export const api = {
 
   communitySummary: () =>
     req("GET", "/api/organizer/community/summary"),
+
+  issueJudgeRecords: () =>
+    req("POST", "/api/organizer/judge-records"),
 };
