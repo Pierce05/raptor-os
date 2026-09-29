@@ -1,6 +1,20 @@
 {
   "components": {
     "schemas": {
+      "Body_import_event_api_organizer_judge_records_import_post": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_event_api_organizer_judge_records_import_post",
+        "type": "object"
+      },
       "CommentIn": {
         "properties": {
           "body": {
@@ -1657,6 +1671,45 @@
           }
         },
         "summary": "Issue signed participation records for every judge with a submitted review (audited)",
+        "tags": [
+          "records-organizer"
+        ]
+      }
+    },
+    "/api/organizer/judge-records/import": {
+      "post": {
+        "operationId": "import_event_api_organizer_judge_records_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_event_api_organizer_judge_records_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a fixtures.json-compatible event",
         "tags": [
           "records-organizer"
         ]

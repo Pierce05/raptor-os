@@ -259,3 +259,173 @@ def seed_from_file(db: Session, path: str) -> None:
         f"judge_b={judge_b_email} participant={participant_email} "
         f"password={SEED_PASSWORD!r} for all"
     )
+
+    
+def import_fixture_data(db: Session, data: dict) -> dict:
+    """
+    Import a fixture-shaped dict into the current database.
+
+    Unlike seed_from_file(), this is intended for organizer-triggered
+    imports and does not use the fixture sentinel.
+    """
+    ev = data["event"]
+
+    event = models.Event(
+        name=ev["name"],
+        submission_opens_at=_parse_iso(DEFAULT_OPENS_AT),
+        submission_closes_at=_parse_iso(ev["submissions_close"]),
+        blind_judging=True,
+    )
+    db.add(event)
+    db.flush()
+
+    track_by_id = {}
+    for t in data.get("tracks", []):
+        track = models.Track(event_id=event.id, name=t["name"])
+        db.add(track)
+        db.flush()
+        track_by_id[t["id"]] = track.id
+
+    # Rubric from score criteria
+    criterion_names = []
+    seen = set()
+
+    for s in data.get("scores", []):
+        for name in s.get("criteria", {}).keys():
+            if name not in seen:
+                seen.add(name)
+                criterion_names.append(name)
+
+    criterion_by_name = {}
+    if criterion_names:
+        weight = round(1.0 / len(criterion_names), 4)
+
+        for name in criterion_names:
+            criterion = models.RubricCriterion(
+                event_id=event.id,
+                name=name,
+                weight=weight,
+                max_score=5,
+            )
+            db.add(criterion)
+            db.flush()
+            criterion_by_name[name] = criterion.id
+
+    # Judges
+    judge_by_fixture_id = {}
+
+    for j in data.get("judges", []):
+        user = models.User(
+            email=j["email"],
+            password_hash=hash_password(SEED_PASSWORD),
+            role="judge",
+            display_name=j.get("name", j["email"]),
+        )
+        db.add(user)
+        db.flush()
+        judge_by_fixture_id[j["id"]] = user.id
+
+    # Teams + participants
+    team_by_fixture_id = {}
+
+    for t in data.get("teams", []):
+        team = models.Team(
+            event_id=event.id,
+            name=t["name"],
+        )
+        db.add(team)
+        db.flush()
+
+        team_by_fixture_id[t["id"]] = team.id
+
+        for email in t.get("members", []):
+            user = models.User(
+                email=email,
+                password_hash=hash_password(SEED_PASSWORD),
+                role="participant",
+                display_name=email.split("@")[0],
+            )
+            db.add(user)
+            db.flush()
+
+            db.add(
+                models.TeamMember(
+                    team_id=team.id,
+                    user_id=user.id,
+                )
+            )
+
+    # Projects
+    project_by_fixture_id = {}
+
+    for p in data.get("projects", []):
+        project = models.Project(
+            team_id=team_by_fixture_id.get(p["team"]),
+            track_id=track_by_id.get(p.get("track")),
+            title=p["title"],
+            tagline=p.get("summary", ""),
+            description=p.get("summary", ""),
+            repo_url=p.get("repo_url"),
+            demo_url=None,
+            status="submitted",
+        )
+
+        db.add(project)
+        db.flush()
+        project_by_fixture_id[p["id"]] = project.id
+
+    # Scores + implied assignments
+    assignment_seen = set()
+    now = datetime.now(timezone.utc)
+
+    for s in data.get("scores", []):
+        judge_id = judge_by_fixture_id.get(s["judge"])
+        project_id = project_by_fixture_id.get(s["project"])
+
+        if not judge_id or not project_id:
+            continue
+
+        pair = (judge_id, project_id)
+
+        if pair not in assignment_seen:
+            assignment_seen.add(pair)
+            db.add(
+                models.Assignment(
+                    judge_id=judge_id,
+                    project_id=project_id,
+                )
+            )
+
+        feedback = s.get("comment") or None
+
+        for criterion_name, value in s.get("criteria", {}).items():
+            criterion_id = criterion_by_name.get(criterion_name)
+
+            if criterion_id is None:
+                continue
+
+            db.add(
+                models.Score(
+                    judge_id=judge_id,
+                    project_id=project_id,
+                    criterion_id=criterion_id,
+                    value=value,
+                    feedback=feedback,
+                    submitted_at=now,
+                )
+            )
+
+    db.flush()
+
+    db.commit()
+
+    return {
+        "event_id": event.id,
+        "event_name": event.name,
+        "tracks": len(track_by_id),
+        "judges": len(judge_by_fixture_id),
+        "teams": len(team_by_fixture_id),
+        "projects": len(project_by_fixture_id),
+        "scores": len(data.get("scores", [])),
+        "criteria": len(criterion_by_name),
+    }

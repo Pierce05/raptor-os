@@ -1,6 +1,7 @@
+import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from .. import community as cm, models, records
 from ..audit import record_audit_event
 from ..database import get_db
 from ..deps import require_judge, require_organizer
+from ..seed import import_fixture_data
 
 organizer_router = APIRouter(prefix="/api/organizer/judge-records", tags=["records-organizer"])
 judge_router = APIRouter(prefix="/api/judge", tags=["records-judge"])
@@ -101,6 +103,51 @@ def issue_records(
         issued.append(_own_view(rec))
     return {"issued": issued, "skipped": skipped}
 
+@organizer_router.post(
+    "/import",
+    summary="Import a fixtures.json-compatible event",
+)
+async def import_event(
+    file: UploadFile = File(...),
+    user: models.User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+):
+    if not file.filename or not file.filename.lower().endswith(".json"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only JSON fixture files are supported",
+        )
+
+    try:
+        raw = await file.read()
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid JSON file",
+        )
+
+    required = ("event", "tracks", "judges", "teams", "projects", "scores")
+
+    if not all(key in data for key in required):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid fixture format",
+        )
+
+    try:
+        result = import_fixture_data(db, data)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Fixture import failed",
+        )
+
+    return {
+        "ok": True,
+        "imported": result,
+    }
 
 @judge_router.get("/record", summary="The calling judge's latest participation record (no id parameter)")
 def my_record(user: models.User = Depends(require_judge), db: Session = Depends(get_db)):
