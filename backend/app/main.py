@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
+
 from . import config
 from .database import Base, engine, SessionLocal
 from . import audit
 from .routers import auth, gallery, teams, projects, judge, organizer, community, organizer_community, records as records_routes
+from .routers import insight
 
 Base.metadata.create_all(bind=engine)
 
@@ -65,7 +67,7 @@ app.include_router(organizer_community.router)
 app.include_router(records_routes.organizer_router)
 app.include_router(records_routes.judge_router)
 app.include_router(records_routes.public_router)
-
+app.include_router(insight.router)
 
 @app.get("/api/health", tags=["system"], summary="Liveness check")
 def health():

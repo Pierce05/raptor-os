@@ -1352,6 +1352,269 @@
         ]
       }
     },
+    "/api/organizer/insight/autopsy/{project_id}": {
+      "get": {
+        "operationId": "ranking_autopsy_api_organizer_insight_autopsy__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Per-judge breakdown of one project's ranking (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
+    "/api/organizer/insight/calibration": {
+      "get": {
+        "operationId": "calibration_api_organizer_insight_calibration_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Per-judge calibration profiles from the latest normalization run (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
+    "/api/organizer/insight/integrity": {
+      "get": {
+        "operationId": "integrity_api_organizer_insight_integrity_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence-backed integrity checks; no composite score (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
+    "/api/organizer/insight/public-vs-jury": {
+      "get": {
+        "operationId": "public_vs_jury_api_organizer_insight_public_vs_jury_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Community vote ranking against jury ranking (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
+    "/api/organizer/insight/replay": {
+      "get": {
+        "operationId": "replay_api_organizer_insight_replay_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Timeline of the whole judging process with per-event chain verification (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
+    "/api/organizer/insight/transformation": {
+      "get": {
+        "operationId": "transformation_api_organizer_insight_transformation_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raw-to-final rank movement and biggest movers (organizer only)",
+        "tags": [
+          "insight-organizer"
+        ]
+      }
+    },
     "/api/organizer/judge-records": {
       "post": {
         "description": "Issues one record per judge with >=1 submitted review. Judges with none are\nskipped, and so are judges whose latest record already shows their current count\n(so re-running is idempotent). Pass judge_id to restrict to a single judge.",
