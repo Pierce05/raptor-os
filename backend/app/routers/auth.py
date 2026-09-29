@@ -28,7 +28,44 @@ def logout(request: Request):
 
 
 @router.get("/me", response_model=schemas.MeResponse, summary="Return the logged-in user")
-def me(user: models.User = Depends(require_user)):
+def me(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    team_id = None
+    team_name = None
+    event_id = None
+
+    membership = db.execute(
+        select(models.TeamMember).where(
+            models.TeamMember.user_id == user.id
+        )
+    ).scalars().first()
+
+    if membership:
+        team = db.get(models.Team, membership.team_id)
+
+        if team:
+            team_id = team.id
+            team_name = team.name
+            event_id = team.event_id
+
+    # RAPTOR-OS currently runs one event per deployment.
+    # Give participants without a team the active event too.
+    if event_id is None:
+        event = db.execute(
+            select(models.Event)
+        ).scalars().first()
+
+        if event:
+            event_id = event.id
+
     return schemas.MeResponse(
-        id=user.id, email=user.email, role=user.role, display_name=user.display_name
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        display_name=user.display_name,
+        event_id=event_id,
+        team_id=team_id,
+        team_name=team_name,
     )

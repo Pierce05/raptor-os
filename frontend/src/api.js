@@ -90,8 +90,14 @@ export const api = {
   // PARTICIPANT / PROJECTS
   // ─────────────────────────────────────────────
 
-  createTeam: (name, event_id) =>
-    req("POST", "/api/teams", { name, event_id }),
+createTeam: (name, event_id) =>
+  req("POST", "/api/teams", { name, event_id }),
+
+inviteTeam: (team_id) =>
+  req("POST", `/api/teams/${team_id}/invite`),
+
+joinTeam: (token) =>
+  req("POST", `/api/teams/join/${token}`),
 
   myProject: () =>
     req("GET", "/api/projects/mine"),
