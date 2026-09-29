@@ -260,7 +260,7 @@ def seed_from_file(db: Session, path: str) -> None:
         f"password={SEED_PASSWORD!r} for all"
     )
 
-    
+
 def import_fixture_data(db: Session, data: dict) -> dict:
     """
     Import a fixture-shaped dict into the current database.
@@ -270,6 +270,7 @@ def import_fixture_data(db: Session, data: dict) -> dict:
     """
     ev = data["event"]
 
+    # --- Event ------------------------------------------------------
     event = models.Event(
         name=ev["name"],
         submission_opens_at=_parse_iso(DEFAULT_OPENS_AT),
@@ -279,14 +280,19 @@ def import_fixture_data(db: Session, data: dict) -> dict:
     db.add(event)
     db.flush()
 
+    # --- Tracks ----------------------------------------------------
     track_by_id = {}
+
     for t in data.get("tracks", []):
-        track = models.Track(event_id=event.id, name=t["name"])
+        track = models.Track(
+            event_id=event.id,
+            name=t["name"],
+        )
         db.add(track)
         db.flush()
         track_by_id[t["id"]] = track.id
 
-    # Rubric from score criteria
+    # --- Rubric ----------------------------------------------------
     criterion_names = []
     seen = set()
 
@@ -297,6 +303,7 @@ def import_fixture_data(db: Session, data: dict) -> dict:
                 criterion_names.append(name)
 
     criterion_by_name = {}
+
     if criterion_names:
         weight = round(1.0 / len(criterion_names), 4)
 
@@ -311,21 +318,29 @@ def import_fixture_data(db: Session, data: dict) -> dict:
             db.flush()
             criterion_by_name[name] = criterion.id
 
-    # Judges
+    # --- Judges ----------------------------------------------------
     judge_by_fixture_id = {}
 
     for j in data.get("judges", []):
-        user = models.User(
-            email=j["email"],
-            password_hash=hash_password(SEED_PASSWORD),
-            role="judge",
-            display_name=j.get("name", j["email"]),
+        user = (
+            db.query(models.User)
+            .filter(models.User.email == j["email"])
+            .first()
         )
-        db.add(user)
-        db.flush()
+
+        if user is None:
+            user = models.User(
+                email=j["email"],
+                password_hash=hash_password(SEED_PASSWORD),
+                role="judge",
+                display_name=j.get("name", j["email"]),
+            )
+            db.add(user)
+            db.flush()
+
         judge_by_fixture_id[j["id"]] = user.id
 
-    # Teams + participants
+    # --- Teams + participants -------------------------------------
     team_by_fixture_id = {}
 
     for t in data.get("teams", []):
@@ -339,14 +354,21 @@ def import_fixture_data(db: Session, data: dict) -> dict:
         team_by_fixture_id[t["id"]] = team.id
 
         for email in t.get("members", []):
-            user = models.User(
-                email=email,
-                password_hash=hash_password(SEED_PASSWORD),
-                role="participant",
-                display_name=email.split("@")[0],
+            user = (
+                db.query(models.User)
+                .filter(models.User.email == email)
+                .first()
             )
-            db.add(user)
-            db.flush()
+
+            if user is None:
+                user = models.User(
+                    email=email,
+                    password_hash=hash_password(SEED_PASSWORD),
+                    role="participant",
+                    display_name=email.split("@")[0],
+                )
+                db.add(user)
+                db.flush()
 
             db.add(
                 models.TeamMember(
@@ -355,7 +377,7 @@ def import_fixture_data(db: Session, data: dict) -> dict:
                 )
             )
 
-    # Projects
+    # --- Projects --------------------------------------------------
     project_by_fixture_id = {}
 
     for p in data.get("projects", []):
@@ -374,7 +396,7 @@ def import_fixture_data(db: Session, data: dict) -> dict:
         db.flush()
         project_by_fixture_id[p["id"]] = project.id
 
-    # Scores + implied assignments
+    # --- Scores + assignments -------------------------------------
     assignment_seen = set()
     now = datetime.now(timezone.utc)
 
@@ -389,6 +411,7 @@ def import_fixture_data(db: Session, data: dict) -> dict:
 
         if pair not in assignment_seen:
             assignment_seen.add(pair)
+
             db.add(
                 models.Assignment(
                     judge_id=judge_id,
@@ -416,7 +439,6 @@ def import_fixture_data(db: Session, data: dict) -> dict:
             )
 
     db.flush()
-
     db.commit()
 
     return {

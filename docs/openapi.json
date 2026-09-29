@@ -1676,6 +1676,25 @@
         ]
       }
     },
+    "/api/organizer/judge-records/export": {
+      "get": {
+        "operationId": "export_event_api_organizer_judge_records_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export the current event in fixtures.json format",
+        "tags": [
+          "records-organizer"
+        ]
+      }
+    },
     "/api/organizer/judge-records/import": {
       "post": {
         "operationId": "import_event_api_organizer_judge_records_import_post",

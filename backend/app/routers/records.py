@@ -11,6 +11,7 @@ from ..audit import record_audit_event
 from ..database import get_db
 from ..deps import require_judge, require_organizer
 from ..seed import import_fixture_data
+from ..export import build_event_export
 
 organizer_router = APIRouter(prefix="/api/organizer/judge-records", tags=["records-organizer"])
 judge_router = APIRouter(prefix="/api/judge", tags=["records-judge"])
@@ -148,6 +149,18 @@ async def import_event(
         "ok": True,
         "imported": result,
     }
+
+@organizer_router.get(
+    "/export",
+    summary="Export the current event in fixtures.json format",
+)
+def export_event(
+    user: models.User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+):
+    event = cm.single_event(db)
+
+    return build_event_export(db, event)
 
 @judge_router.get("/record", summary="The calling judge's latest participation record (no id parameter)")
 def my_record(user: models.User = Depends(require_judge), db: Session = Depends(get_db)):
