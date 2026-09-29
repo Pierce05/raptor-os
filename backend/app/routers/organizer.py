@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..export import build_event_export
-from .. import models
+from .. import models, schemas
 from ..database import get_db
 from ..deps import require_organizer
 from ..audit import record_audit_event, verify_chain
@@ -48,7 +48,72 @@ def _resolve_event_id(db: Session, event_id: str | None) -> str:
 
 
 @router.get("/event")
-def current_event(db: Session = Depends(get_db), user: models.User = Depends(require_organizer)):
+def current_event(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_organizer),
+):
+    event = db.execute(select(models.Event)).scalars().first()
+
+    if event is None:
+        raise HTTPException(status_code=404, detail="No event has been seeded yet")
+
+    return {
+        "id": event.id,
+        "name": event.name,
+        "submission_opens_at": event.submission_opens_at,
+        "submission_closes_at": event.submission_closes_at,
+    }
+
+@router.patch("/event")
+def update_event_settings(
+    body: schemas.EventSettingsUpdate,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_organizer),
+):
+    event = db.execute(select(models.Event)).scalars().first()
+
+    if event is None:
+        raise HTTPException(status_code=404, detail="No event has been seeded yet")
+
+    if body.submission_opens_at is not None:
+        event.submission_opens_at = body.submission_opens_at
+
+    if body.submission_closes_at is not None:
+        event.submission_closes_at = body.submission_closes_at
+
+    if (
+        event.submission_opens_at is not None
+        and event.submission_closes_at is not None
+        and event.submission_closes_at <= event.submission_opens_at
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Submission deadline must be after the opening time",
+        )
+
+    record_audit_event(
+        db,
+        event_id=event.id,
+        actor_id=user.id,
+        action="event.settings.updated",
+        entity_type="event",
+        entity_id=event.id,
+        payload={
+            "submission_opens_at": event.submission_opens_at.isoformat(),
+            "submission_closes_at": event.submission_closes_at.isoformat(),
+        },
+    )
+
+    db.commit()
+    db.refresh(event)
+
+    return {
+        "id": event.id,
+        "name": event.name,
+        "submission_opens_at": event.submission_opens_at,
+        "submission_closes_at": event.submission_closes_at,
+    }
+
     """
     This app is single-event-per-deployment (see normalization.py /
     THREAT-MODEL.md) -- there is exactly one Event row seeded. The

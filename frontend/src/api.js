@@ -153,6 +153,9 @@ joinTeam: (token) =>
   currentEvent: () =>
     req("GET", "/api/organizer/event"),
 
+  updateEventSettings: (data) =>
+    req("PATCH", "/api/organizer/event", data),
+
   runAssignment: (event_id) =>
     req(
       "POST",

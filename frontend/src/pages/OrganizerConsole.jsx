@@ -9,6 +9,14 @@ function Delta({ v }) {
   return v > 0 ? <span className="delta up">↑ {v}</span> : <span className="delta down">↓ {Math.abs(v)}</span>;
 }
 
+function toDateTimeLocal(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
 export default function OrganizerConsole({ onAuditLoaded }) {
   const [eventId, setEventId] = useState(null);
   const [eventName, setEventName] = useState(null);
@@ -23,9 +31,20 @@ export default function OrganizerConsole({ onAuditLoaded }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [lastSync, setLastSync] = useState(null);
-
+  const [submissionOpens, setSubmissionOpens] = useState("");
+  const [submissionCloses, setSubmissionCloses] = useState("");
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [success, setSuccess] = useState(null);
+  
   useEffect(() => {
-    api.currentEvent().then((ev) => { setEventId(ev.id); setEventName(ev.name); }).catch((e) => setEventError(e.message));
+    api.currentEvent()
+      .then((ev) => {
+        setEventId(ev.id);
+        setEventName(ev.name);
+        setSubmissionOpens(toDateTimeLocal(ev.submission_opens_at));
+        setSubmissionCloses(toDateTimeLocal(ev.submission_closes_at));
+      })
+      .catch((e) => setEventError(e.message));
   }, []);
 
   const loadDashboard = useCallback(async () => {
@@ -53,6 +72,33 @@ export default function OrganizerConsole({ onAuditLoaded }) {
     setError(null);
     try { setRankings(await api.rankings(eventId)); } catch (e) { setError(e.message); }
   }, [eventId]);
+
+  async function saveEventSettings() {
+  setError(null);
+  setSuccess(null);
+  setSettingsBusy(true);
+
+  try {
+    const ev = await api.updateEventSettings({
+      submission_opens_at: submissionOpens
+        ? new Date(submissionOpens).toISOString()
+        : null,
+      submission_closes_at: submissionCloses
+        ? new Date(submissionCloses).toISOString()
+        : null,
+    });
+
+    setSubmissionOpens(toDateTimeLocal(ev.submission_opens_at));
+    setSubmissionCloses(toDateTimeLocal(ev.submission_closes_at));
+    setSuccess("Event submission window updated.");
+    await loadDashboard();
+    await loadAudit();
+  } catch (e) {
+    setError(e.message);
+  } finally {
+    setSettingsBusy(false);
+  }
+}
 
   // Mission Control is a live view: everything loads on arrival and re-polls.
   useEffect(() => {
@@ -118,6 +164,49 @@ export default function OrganizerConsole({ onAuditLoaded }) {
 
       {tab === "mission-control" && (
         <div className="stack">
+          <Panel title="SUBMISSION WINDOW" accent>
+  <div className="cols-2">
+    <div>
+      <label className="field-label" htmlFor="submission-opens">
+        SUBMISSIONS OPEN
+      </label>
+      <input
+        id="submission-opens"
+        type="datetime-local"
+        value={submissionOpens}
+        onChange={(e) => setSubmissionOpens(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="field-label" htmlFor="submission-closes">
+        SUBMISSION DEADLINE
+      </label>
+      <input
+        id="submission-closes"
+        type="datetime-local"
+        value={submissionCloses}
+        onChange={(e) => setSubmissionCloses(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <div className="row" style={{ marginTop: 14 }}>
+    <button
+      className="primary"
+      onClick={saveEventSettings}
+      disabled={settingsBusy}
+    >
+      {settingsBusy ? "Saving..." : "Save event window"}
+    </button>
+
+    {success && (
+      <span style={{ color: "var(--green)" }}>
+        {success}
+      </span>
+    )}
+  </div>
+</Panel>
           <div className="row">
             <button onClick={loadDashboard} disabled={!eventId || busy}>Refresh</button>
             <button onClick={runAssignment} disabled={!eventId || busy}>Run assignment</button>
