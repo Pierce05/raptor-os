@@ -1,3 +1,8 @@
+Absolutely 😭 Let's make it **short, polished, and judge-friendly**. This is the version I'd actually put on GitHub.
+
+Copy-paste the **entire block** into `README.md`:
+
+```markdown
 # RAPTOR-OS
 
 ### Judging you can explain.
@@ -96,3 +101,150 @@ Judges can receive signed records of their participation, with server-mediated v
              └──────────────┴─────────────┘
                             │
                        PostgreSQL
+```
+
+### Stack
+
+**Frontend:** React · Vite · Nginx  
+**Backend:** Python · FastAPI · SQLAlchemy  
+**Database:** PostgreSQL  
+**Infrastructure:** Docker · Docker Compose  
+**API:** REST · OpenAPI
+
+---
+
+## ✦ Screenshots
+
+> Screenshots and a live demo can be added here.
+
+| Gallery | Judge Deck |
+|---|---|
+| *coming soon* | *coming soon* |
+
+| Participant Dashboard | Organizer Console |
+|---|---|
+| *coming soon* | *coming soon* |
+
+---
+
+## ✦ Quick Start
+
+### Requirements
+
+- Docker
+- Docker Compose
+
+### Run
+
+```bash
+git clone https://github.com/Pierce05/raptor-os.git
+cd raptor-os
+docker compose up
+```
+
+Open the application:
+
+**http://localhost:8080**
+
+Backend:
+
+**http://localhost:8000**
+
+API documentation:
+
+**http://localhost:8000/api/docs**
+
+Health check:
+
+**http://localhost:8000/api/health**
+
+The application seeds its development environment from `backend/fixtures.json`.
+
+---
+
+## ✦ Demo Accounts
+
+| Role | Email | Password |
+|---|---|---|
+| Organizer | `organizer@raptor.os` | `organizer-pass` |
+| Judge A | `judgea@raptor.os` | `judgea-pass` |
+| Judge B | `judgeb@raptor.os` | `judgeb-pass` |
+| Participant | `participant@raptor.os` | `participant-pass` |
+
+These are the included local development fixtures.
+
+---
+
+## ✦ Documentation
+
+| Document | Purpose |
+|---|---|
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System architecture |
+| [`DATA-MODEL.md`](DATA-MODEL.md) | Database model |
+| [`JUDGING.md`](JUDGING.md) | Judging & normalization |
+| [`THREAT-MODEL.md`](THREAT-MODEL.md) | Security considerations |
+| [`API.md`](API.md) | API overview |
+| [`docs/openapi.json`](docs/openapi.json) | OpenAPI specification |
+
+Interactive API docs are available at:
+
+```text
+/api/docs
+/api/redoc
+/api/openapi.json
+```
+
+---
+
+## ✦ Testing
+
+Run the local acceptance check with the stack running:
+
+```bash
+python3 scripts/local_acceptance_check.py
+```
+
+Run backend tests:
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+
+---
+
+## ✦ Current Scope
+
+RAPTOR-OS is designed as self-hostable competition infrastructure rather than a complete hosted SaaS product.
+
+Current limitations include:
+
+- Single event per deployment
+- Seeded development accounts
+- Authenticated/member community voting
+- No CAPTCHA or email verification
+- No webhook system
+- No embeddable widget
+- Participation records use server-mediated HMAC verification
+
+These limitations are documented intentionally.
+
+---
+
+## ✦ Project
+
+**RAPTOR-OS**  
+*Open-source infrastructure for hackathons and technical competitions.*
+
+Built for **DOGFOOD 2026**.
+
+**Repository:**  
+https://github.com/Pierce05/raptor-os
+
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+```
