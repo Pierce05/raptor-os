@@ -1,6 +1,4 @@
-Absolutely 😭 Let's make it **short, polished, and judge-friendly**. This is the version I'd actually put on GitHub.
 
-Copy-paste the **entire block** into `README.md`:
 
 ```markdown
 # RAPTOR-OS
