@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { fmt, short, MetricStrip, Radar, StatusBadge, LoadingState, EmptyState, ErrorState, Panel } from "../ui";
 
 const VOTER_ROLES = ["participant", "judge"];
-const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : "");
 
-export default function Gallery({ user }) {
-  const [projects, setProjects] = useState(null); // null = loading
+export default function Gallery({ user, auditState }) {
+  const [projects, setProjects] = useState(null);
+  const [total, setTotal] = useState(null);
   const [allTracks, setAllTracks] = useState([]);
   const [q, setQ] = useState("");
   const [track, setTrack] = useState("");
@@ -13,20 +14,19 @@ export default function Gallery({ user }) {
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState(null);
 
-  // T3-lite. community.state is decided by the server (UTC), never the browser clock.
   const [community, setCommunity] = useState(null);
-  const [ballot, setBallot] = useState(null);   // { ids, voted, limit } while OPEN and signed in
-  const [results, setResults] = useState(null); // { projectId: votes } only after CLOSED
+  const [ballot, setBallot] = useState(null);
+  const [results, setResults] = useState(null);
   const [voteMsg, setVoteMsg] = useState(null);
   const canVote = !!user && VOTER_ROLES.includes(user.role);
   const [comments, setComments] = useState(null);
   const [commentText, setCommentText] = useState("");
   const [commentMsg, setCommentMsg] = useState(null);
 
-  // No /tracks endpoint exists -- the only honest source for the filter's
-  // option list is whatever track_ids actually appear in the gallery.
+  // No /tracks endpoint exists: the filter options are the track_ids that appear in the gallery.
   useEffect(() => {
     api.gallery({}).then((rows) => {
+      setTotal(rows.length);
       setAllTracks([...new Set(rows.map((r) => r.track_id).filter(Boolean))]);
     }).catch(() => {});
   }, []);
@@ -44,16 +44,10 @@ export default function Gallery({ user }) {
     api.communityStatus().then((c) => {
       setCommunity(c);
       if (c.state === "OPEN" && user) {
-        api.ballot().then((b) => setBallot({
-          ids: b.projects.map((p) => p.id),
-          voted: b.voted_project_ids,
-          limit: b.vote_limit,
-        })).catch(() => setBallot(null));
+        api.ballot().then((b) => setBallot({ ids: b.projects.map((p) => p.id), voted: b.voted_project_ids, limit: b.vote_limit })).catch(() => setBallot(null));
       } else setBallot(null);
       if (c.state === "CLOSED") {
-        api.communityResults().then((r) =>
-          setResults(Object.fromEntries(r.results.map((x) => [x.project_id, x.votes])))
-        ).catch(() => setResults(null));
+        api.communityResults().then((r) => setResults(Object.fromEntries(r.results.map((x) => [x.project_id, x.votes])))).catch(() => setResults(null));
       } else setResults(null);
     }).catch(() => setCommunity(null));
   }
@@ -76,10 +70,7 @@ export default function Gallery({ user }) {
   async function postComment() {
     setCommentMsg(null);
     const body = commentText.trim();
-    if (body.length < 1 || body.length > 500) {
-      setCommentMsg("Comments must be 1 to 500 characters.");
-      return;
-    }
+    if (body.length < 1 || body.length > 500) { setCommentMsg("Comments must be 1 to 500 characters."); return; }
     try {
       const c = await api.postComment(selected.id, body);
       setComments((cs) => [...(cs || []), c]);
@@ -87,7 +78,6 @@ export default function Gallery({ user }) {
     } catch (err) { setCommentMsg(err.message); }
   }
 
-  // While OPEN and signed in, the server's per-voter order wins over any client sort.
   const ballotRank = ballot ? new Map(ballot.ids.map((id, i) => [id, i])) : null;
   const sorted = projects
     ? [...projects].sort((a, b) => {
@@ -101,98 +91,127 @@ export default function Gallery({ user }) {
     if (!community || community.state !== "OPEN") return null;
     if (!user) return <span className="meta">Log in to vote</span>;
     if (!canVote || !ballot) return null;
-    if (ballot.voted.includes(project.id)) return <span className="badge ok">voted</span>;
+    if (ballot.voted.includes(project.id)) return <StatusBadge tone="ok">✓ voted</StatusBadge>;
     const exhausted = ballot.voted.length >= ballot.limit;
-    return (
-      <button disabled={exhausted} onClick={(e) => castVote(e, project.id)}>
-        {exhausted ? "Vote limit reached" : "Vote"}
-      </button>
-    );
+    return <button className={exhausted ? "" : "primary"} disabled={exhausted} onClick={(e) => castVote(e, project.id)}>{exhausted ? "Vote limit reached" : "Vote"}</button>;
   }
 
+  /* ---------- project dossier ---------- */
   if (selected) {
     return (
       <div>
-        <button onClick={() => setSelected(null)}>&larr; back to gallery</button>
-        <div className="head" style={{ marginTop: 16 }}>
-          <div>
-            <span className="eyebrow">PROJECT · {selected.id.slice(0, 8)}</span>
-            <h2>{selected.title}</h2>
-            <p style={{ color: "var(--muted)" }}>{selected.tagline}</p>
+        <button className="ghost" onClick={() => setSelected(null)}>← GALLERY</button>
+        <div style={{ marginTop: 28 }}>
+          <span className="eyebrow">PROJECT DOSSIER · {short(selected.id)}</span>
+          <h1 className="dossier-title">{selected.title}</h1>
+          <p style={{ color: "var(--muted)", fontSize: "1.05rem", maxWidth: "60ch" }}>{selected.tagline}</p>
+          <div className="row" style={{ marginTop: 14 }}>
+            <StatusBadge tone="ok">{selected.status || "submitted"}</StatusBadge>
+            {selected.track_id && <StatusBadge>TRACK {short(selected.track_id)}</StatusBadge>}
+            {results && <StatusBadge tone="ok">{results[selected.id] ?? 0} votes</StatusBadge>}
           </div>
-          <span className="badge ok">submitted</span>
         </div>
-        <p>{selected.description || "No description provided."}</p>
-        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-          {selected.demo_url && <button onClick={() => window.open(selected.demo_url, "_blank")}>View demo</button>}
-          {selected.repo_url && <button onClick={() => window.open(selected.repo_url, "_blank")}>Repository</button>}
-          {voteControl(selected)}
-          {results && <span className="badge ok">{results[selected.id] ?? 0} votes</span>}
-        </div>
-        {voteMsg && <p className="error">{voteMsg}</p>}
 
-        <h3 style={{ marginTop: 28 }}>Comments</h3>
-        {comments === null && <div className="state">Loading comments…</div>}
-        {comments && comments.length === 0 && <div className="state">No comments yet.</div>}
-        {comments && comments.map((c) => (
-          <div className="card" key={c.id} style={{ marginBottom: 8 }}>
-            <p style={{ color: "var(--text)", margin: 0 }}>{c.body}</p>
-            <div className="rowmeta"><span>{c.author}</span><span>{fmt(c.created_at)}</span></div>
+        <div className="cols-2" style={{ marginTop: 32 }}>
+          <div className="stack">
+            <Panel title="DESCRIPTION" accent>
+              <p style={{ whiteSpace: "pre-wrap" }}>{selected.description || "No description provided."}</p>
+            </Panel>
+
+            <Panel title="COMMENTS" right={comments ? `${comments.length}` : ""}>
+              {comments === null && <LoadingState rows={1} />}
+              {comments && comments.length === 0 && <EmptyState>No comments yet.</EmptyState>}
+              {comments && comments.map((c) => (
+                <div key={c.id} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0" }}>
+                  <p style={{ margin: 0 }}>{c.body}</p>
+                  <div className="meta" style={{ marginTop: 4 }}>{c.author} · {fmt(c.created_at)}</div>
+                </div>
+              ))}
+              {user ? (
+                <div style={{ marginTop: 14 }}>
+                  <textarea rows={3} maxLength={500} placeholder="Add a comment (1 to 500 characters)" aria-label="Comment" value={commentText} onChange={(e) => setCommentText(e.target.value)} />
+                  <div className="row"><button onClick={postComment}>Post comment</button><span className="meta">{commentText.length}/500</span></div>
+                  {commentMsg && <p className="error" role="alert">{commentMsg}</p>}
+                </div>
+              ) : <p className="meta" style={{ marginTop: 12 }}>Log in to comment.</p>}
+            </Panel>
           </div>
-        ))}
-        {user ? (
-          <div style={{ marginTop: 12 }}>
-            <textarea rows={3} maxLength={500} placeholder="Add a comment (1 to 500 characters)"
-              value={commentText} onChange={(e) => setCommentText(e.target.value)} />
-            <button onClick={postComment}>Post comment</button>
-            {commentMsg && <p className="error">{commentMsg}</p>}
+
+          <div className="stack" style={{ alignContent: "start" }}>
+            <Panel title="LINKS">
+              <div className="stack" style={{ gap: 10 }}>
+                {selected.demo_url ? <button onClick={() => window.open(selected.demo_url, "_blank")}>Live demo ↗</button> : <span className="meta">No demo link.</span>}
+                {selected.repo_url ? <button onClick={() => window.open(selected.repo_url, "_blank")}>Repository ↗</button> : <span className="meta">No repository link.</span>}
+              </div>
+            </Panel>
+            {community && community.state !== "NOT_CONFIGURED" && (
+              <Panel title="COMMUNITY VOTE">
+                <div className="row">
+                  <StatusBadge tone={community.state === "OPEN" ? "ok" : community.state === "CLOSED" ? "err" : "warn"}>{community.state.replace("_", " ")}</StatusBadge>
+                  {voteControl(selected)}
+                </div>
+                {voteMsg && <p className="error" role="alert">{voteMsg}</p>}
+              </Panel>
+            )}
           </div>
-        ) : (
-          <p className="meta" style={{ marginTop: 12 }}>Log in to comment.</p>
-        )}
+        </div>
       </div>
     );
   }
 
+  /* ---------- gallery ---------- */
+  const votesTotal = results ? Object.values(results).reduce((a, b) => a + b, 0) : null;
+  const strip = [
+    { value: total ?? "—", label: "SUBMISSIONS" },
+    { value: allTracks.length, label: "TRACKS" },
+    { value: community && community.state !== "NOT_CONFIGURED" ? community.state.replace("_", " ") : "—", label: "COMMUNITY VOTING", tone: community?.state === "OPEN" ? "ok" : "" },
+  ];
+  if (votesTotal !== null) strip.push({ value: votesTotal, label: "TOTAL VOTES" });
+  else if (ballot) strip.push({ value: `${ballot.voted.length}/${ballot.limit}`, label: "YOUR VOTES USED" });
+  if (auditState) strip.push({ value: auditState === "valid" ? "VALID" : "BROKEN", label: "AUDIT CHAIN", tone: auditState === "valid" ? "ok" : "err" });
+
   return (
     <div>
-      <div className="head">
-        <div>
-          <span className="eyebrow">PUBLIC GALLERY</span>
-          <h2>{projects ? `${projects.length} SUBMISSIONS` : "Loading…"}</h2>
+      <section className="hero">
+        <div className="hero-grid">
+          <div>
+            <span className="eyebrow rise" style={{ animationDelay: "80ms" }}>PUBLIC GALLERY</span>
+            <h1 className="rise" style={{ animationDelay: "180ms" }}>Judging you<br />can <span className="cut" style={{ color: "var(--crimson)" }}>explain.</span></h1>
+            <p className="lede rise" style={{ animationDelay: "320ms" }}>A hackathon operating system built like it expects to be audited — every role has a door, every score has an owner, every judgment leaves evidence.</p>
+          </div>
+          <Radar dots={total || 0} />
         </div>
+        <MetricStrip items={strip} />
+      </section>
+
+      <div className="ghead">
+        <h2>Public Gallery</h2>
+        <span className="meta">{projects ? `${projects.length} submissions` : "loading…"}</span>
       </div>
 
       {community && community.state !== "NOT_CONFIGURED" && (
-        <div className="state" style={{ marginBottom: 14 }}>
-          {community.state === "OPEN" && (
-            <>
-              <span className="badge ok">VOTING OPEN</span>{" "}closes {fmt(community.close_at)}.{" "}
-              {ballot
-                ? `Projects are in your own randomized order. ${ballot.voted.length} of ${ballot.limit} votes used.`
-                : user ? "" : "Log in to vote."}
-            </>
-          )}
-          {community.state === "NOT_OPEN" && (
-            <><span className="badge warn">VOTING NOT OPEN</span>{" "}opens {fmt(community.open_at)}.</>
-          )}
-          {community.state === "CLOSED" && (
-            <><span className="badge err">VOTING CLOSED</span>{" "}final vote totals are shown on each project.</>
-          )}
-          {voteMsg && <div className="error" style={{ marginTop: 6 }}>{voteMsg}</div>}
+        <div className={`banner ${community.state === "NOT_OPEN" ? "warn" : community.state === "CLOSED" ? "err" : ""}`}>
+          {community.state === "OPEN" && (<><StatusBadge tone="ok">VOTING OPEN</StatusBadge><span>closes {fmt(community.close_at)}.{" "}
+            {ballot ? `Projects are in your own randomized order. ${ballot.voted.length} of ${ballot.limit} votes used.` : user ? "" : "Log in to vote."}</span></>)}
+          {community.state === "NOT_OPEN" && (<><StatusBadge tone="warn">VOTING NOT OPEN</StatusBadge><span>opens {fmt(community.open_at)}.</span></>)}
+          {community.state === "CLOSED" && (<><StatusBadge tone="err">VOTING CLOSED</StatusBadge><span>final vote totals are shown on each project.</span></>)}
+          {voteMsg && <span className="error" style={{ margin: 0 }}>{voteMsg}</span>}
         </div>
       )}
 
-      <div className="toolbar">
-        <input placeholder="Search projects..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="searchbar">
+        <div className="field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#948c80" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+          <input placeholder="Search projects" aria-label="Search projects" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
         {allTracks.length > 0 && (
-          <select value={track} onChange={(e) => setTrack(e.target.value)}>
+          <select aria-label="Track" value={track} onChange={(e) => setTrack(e.target.value)}>
             <option value="">All tracks</option>
             {allTracks.map((t) => <option key={t} value={t}>{t.slice(0, 8)}</option>)}
           </select>
         )}
         {!ballot && (
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+          <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="title-asc">Title A→Z</option>
             <option value="title-desc">Title Z→A</option>
             {results && <option value="votes">Most votes</option>}
@@ -200,30 +219,32 @@ export default function Gallery({ user }) {
         )}
       </div>
 
-      {projects === null && <div className="skeleton"><div className="skel-row" /><div className="skel-row" /><div className="skel-row" /></div>}
-
-      {error && (
-        <div className="state state-error">
-          RAPTOR could not reach the gallery service.
-          <div><button onClick={load}>Retry</button></div>
-        </div>
-      )}
-
-      {sorted && sorted.length === 0 && !error && (
-        <div className="state">No submitted projects yet. Check back once teams start submitting.</div>
-      )}
+      {projects === null && <LoadingState />}
+      {error && <ErrorState onRetry={load}>RAPTOR could not reach the gallery service.</ErrorState>}
+      {sorted && sorted.length === 0 && !error && <EmptyState>No submitted projects yet. Check back once teams start submitting.</EmptyState>}
 
       {sorted && sorted.length > 0 && (
-        <div className="grid">
-          {sorted.map((p) => (
-            <div className="card clickable" key={p.id} onClick={() => setSelected(p)}>
-              <h3>{p.title}</h3>
-              <p>{p.tagline}</p>
-              <div className="rowmeta">
-                <span>{p.id.slice(0, 8)}</span>
-                {results ? <span className="badge ok">{results[p.id] ?? 0} votes</span> : <span className="cta">VIEW PROJECT →</span>}
+        <div className="list">
+          {sorted.map((p, i) => (
+            <div className="item" key={p.id} role="button" tabIndex={0} style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+              onClick={() => setSelected(p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(p); } }}>
+              <span className="chip">{String(i + 1).padStart(2, "0")}</span>
+              <div className="col-main">
+                <h3>{p.title}</h3>
+                <p>{p.tagline}</p>
+                <div className="tags">
+                  <span>{short(p.id)}</span>
+                  {p.track_id && <span>TRACK {short(p.track_id, 6)}</span>}
+                  <span style={{ color: "var(--cyan)" }}>● {p.status}</span>
+                  {p.demo_url && <span>DEMO</span>}
+                  {p.repo_url && <span>REPO</span>}
+                </div>
               </div>
-              {voteControl(p) && <div style={{ marginTop: 10 }}>{voteControl(p)}</div>}
+              <div className="side">
+                {results && <StatusBadge tone="ok">{results[p.id] ?? 0} votes</StatusBadge>}
+                {voteControl(p)}
+                <span className="arrow">→</span>
+              </div>
             </div>
           ))}
         </div>
