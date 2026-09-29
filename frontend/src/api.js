@@ -185,4 +185,7 @@ export const api = {
 
   exportCsvUrl: (event_id) =>
     `/api/organizer/export.csv?event_id=${event_id}`,
+
+  communitySummary: () =>
+    req("GET", "/api/organizer/community/summary"),
 };
