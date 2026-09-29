@@ -12,6 +12,7 @@ export default function OrganizerConsole({ onAuditLoaded }) {
   const [explanation, setExplanation] = useState(null);
   const [explanationLoading, setExplanationLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -25,16 +26,36 @@ export default function OrganizerConsole({ onAuditLoaded }) {
     try { setDashboard(await api.dashboard(eventId)); } catch (e) { setError(e.message); }
     setBusy(false);
   }
-  async function runAssignment() {
-    setError(null); setBusy(true);
-    try { await api.runAssignment(eventId); await loadDashboard(); } catch (e) { setError(e.message); }
+async function runAssignment() {
+  setError(null);
+  setSuccess(null);
+  setBusy(true);
+
+  try {
+    await api.runAssignment(eventId);
+    await loadDashboard();
+    setSuccess("✓ Assignment complete — review assignments updated.");
+  } catch (err) {
+    setError(err.message || "Failed to run assignment.");
+  } finally {
     setBusy(false);
   }
-  async function runNormalization() {
-    setError(null); setBusy(true);
-    try { await api.runNormalization(eventId); await loadRankings(); } catch (e) { setError(e.message); }
+}
+async function runNormalization() {
+  setError(null);
+  setSuccess(null);
+  setBusy(true);
+
+  try {
+    await api.runNormalization(eventId);
+    await loadRankings();
+    setSuccess("✓ Normalization complete — rankings updated.");
+  } catch (err) {
+    setError(err.message || "Failed to run normalization.");
+  } finally {
     setBusy(false);
   }
+}
   async function loadRankings() {
     setError(null);
     try { setRankings(await api.rankings(eventId)); } catch (e) { setError(e.message); }
@@ -101,6 +122,11 @@ export default function OrganizerConsole({ onAuditLoaded }) {
               <button disabled={!eventId}>Export CSV</button>
             </a>
           </div>
+          {success && (
+            <div className="state" style={{ marginBottom: 14 }}>
+              {success}
+            </div>
+          )}
 
           {!dashboard && <div className="state">Hit Refresh to load live metrics.</div>}
 
