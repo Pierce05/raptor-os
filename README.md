@@ -1,8 +1,4 @@
-Absolutely 😭 Let's make it **short, polished, and judge-friendly**. This is the version I'd actually put on GitHub.
 
-Copy-paste the **entire block** into `README.md`:
-
-```markdown
 # RAPTOR-OS
 
 ### Judging you can explain.
@@ -82,7 +78,7 @@ Judges can receive signed records of their participation, with server-mediated v
 
 ## ✦ Architecture
 
-```text
+
                     RAPTOR-OS
                         │
              ┌──────────┴──────────┐
@@ -101,7 +97,7 @@ Judges can receive signed records of their participation, with server-mediated v
              └──────────────┴─────────────┘
                             │
                        PostgreSQL
-```
+
 
 ### Stack
 
