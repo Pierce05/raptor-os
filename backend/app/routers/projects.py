@@ -26,7 +26,7 @@ def _events_for_team(db: Session, team: models.Team) -> models.Event:
     return db.get(models.Event, team.event_id)
 
 
-@router.get("/mine", response_model=schemas.ProjectOut | None)
+@router.get("/mine", response_model=schemas.ProjectOut | None, summary="Get the calling participant's team project, or null")
 def my_project(
     db: Session = Depends(get_db),
     user: models.User = Depends(require_participant),
@@ -46,7 +46,7 @@ def my_project(
     ).scalars().first()
 
 
-@router.post("", response_model=schemas.ProjectOut)
+@router.post("", response_model=schemas.ProjectOut, summary="Create a draft project for the calling participant's team")
 def create_project(
     body: schemas.ProjectCreate,
     db: Session = Depends(get_db),
@@ -75,7 +75,7 @@ def create_project(
     return project
 
 
-@router.patch("/{project_id}", response_model=schemas.ProjectOut)
+@router.patch("/{project_id}", response_model=schemas.ProjectOut, summary="Edit a draft project (submission window enforced)")
 def edit_project(
     project_id: str,
     body: schemas.ProjectCreate,
@@ -102,7 +102,7 @@ def edit_project(
     return project
 
 
-@router.post("/{project_id}/submit", response_model=schemas.ProjectOut)
+@router.post("/{project_id}/submit", response_model=schemas.ProjectOut, summary="Submit a project (submission window enforced)")
 def submit_project(
     project_id: str,
     db: Session = Depends(get_db),

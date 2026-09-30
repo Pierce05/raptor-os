@@ -48,10 +48,10 @@ peer_scores  = "/api/organizer/judges/e13d88025eb742a78ed6d9603d419e9f/scores"
 csv_export   = "/api/organizer/export.csv"
 
 [auth]
-organizer   = "Cookie: session=eyJ1c2VyX2lkIjogIjdmZDA5NjI3NzcwMDQ0ZWNhMmJiZTI4YWMxOGRkMzczIn0=.arjz_w.SBhnzL71F5ZKsYCGJkn8RTlzPc8"
-judge_a   = "Cookie: session=eyJ1c2VyX2lkIjogImUxM2Q4ODAyNWViNzQyYTc4ZWQ2ZDk2MDNkNDE5ZTlmIn0=.arjz_w.lLTgbnw5TIjjAnHeSj_nN9uH-iI"
-judge_b   = "Cookie: session=eyJ1c2VyX2lkIjogIjQ3Y2UyNWRmNzgxZjQwZjBhNmZhMzQ4YWE2ZGNjYzllIn0=.arj0AA.9Q4fNguYvU75z-2Q1nZOwHGdGGA"
-participant   = "Cookie: session=eyJ1c2VyX2lkIjogImMxOWY0YWY5MzZmNTQ4MWNhMWE4YWU0MDVjMDQ2OWEyIn0=.arj0AA.uN6Pccgon8eOpCo2hkad7Ti_350"
+organizer   = "Cookie: session=eyJ1c2VyX2lkIjogIjdmZDA5NjI3NzcwMDQ0ZWNhMmJiZTI4YWMxOGRkMzczIn0=.aruI2A.EMuNEvNqbSvyFsj563_dKsNINxo"
+judge_a   = "Cookie: session=eyJ1c2VyX2lkIjogImUxM2Q4ODAyNWViNzQyYTc4ZWQ2ZDk2MDNkNDE5ZTlmIn0=.aruI2Q.JYWnUqMYaBohypvTjCpl19z0L4o"
+judge_b   = "Cookie: session=eyJ1c2VyX2lkIjogIjQ3Y2UyNWRmNzgxZjQwZjBhNmZhMzQ4YWE2ZGNjYzllIn0=.aruI2Q.lVWnQ03V509VlbjRcNuoXSwvW78"
+participant   = "Cookie: session=eyJ1c2VyX2lkIjogImMxOWY0YWY5MzZmNTQ4MWNhMWE4YWU0MDVjMDQ2OWEyIn0=.aruI2Q.n_vu_kDVlHd23xWAIT9qrCjxO_k"
 
 # Not read by the real run.py -- see header comment above.
 [seed_accounts]

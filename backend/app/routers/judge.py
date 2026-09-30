@@ -28,7 +28,7 @@ def _assert_assigned(db: Session, judge_id: str, project_id: str) -> models.Assi
     return assignment
 
 
-@router.get("/queue")
+@router.get("/queue", summary="List the projects assigned to the calling judge")
 def queue(db: Session = Depends(get_db), user: models.User = Depends(require_judge)):
     assignments = db.execute(
         select(models.Assignment).where(models.Assignment.judge_id == user.id)
@@ -54,7 +54,7 @@ def queue(db: Session = Depends(get_db), user: models.User = Depends(require_jud
     ]
 
 
-@router.get("/project/{project_id}")
+@router.get("/project/{project_id}", summary="Get an assigned project for judging (identity-redacted when blind)")
 def project_for_judging(
     project_id: str,
     db: Session = Depends(get_db),
@@ -95,7 +95,7 @@ def project_for_judging(
     return payload
 
 
-@router.put("/scores/{project_id}/draft")
+@router.put("/scores/{project_id}/draft", summary="Autosave draft scores for an assigned project")
 def save_draft(
     project_id: str,
     body: schemas.ScoreSubmitIn,
@@ -120,7 +120,7 @@ def save_draft(
     return {"ok": True}
 
 
-@router.get("/scores/{project_id}")
+@router.get("/scores/{project_id}", summary="Get the calling judge's own scores for one project")
 def my_scores_for_project(
     project_id: str,
     db: Session = Depends(get_db),
@@ -148,7 +148,7 @@ def my_scores_for_project(
     }
 
 
-@router.get("/scores")
+@router.get("/scores", summary="Get all of the calling judge's own scores")
 def my_scores(
     db: Session = Depends(get_db),
     user: models.User = Depends(require_judge),
@@ -182,7 +182,7 @@ def my_scores(
     }
 
 
-@router.post("/scores/{project_id}/submit")
+@router.post("/scores/{project_id}/submit", summary="Submit final, immutable scores for an assigned project")
 def submit_scores(
     project_id: str,
     body: schemas.ScoreSubmitIn,

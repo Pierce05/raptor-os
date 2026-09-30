@@ -8,7 +8,7 @@ from ..database import get_db
 router = APIRouter(prefix="/api/gallery", tags=["gallery"])
 
 
-@router.get("", response_model=list[schemas.ProjectOut])
+@router.get("", response_model=list[schemas.ProjectOut], summary="List submitted projects (public; optional track and title search)")
 def list_gallery(
     db: Session = Depends(get_db),
     track_id: str | None = Query(default=None),
@@ -25,7 +25,7 @@ def list_gallery(
     return projects
 
 
-@router.get("/{project_id}", response_model=schemas.ProjectOut)
+@router.get("/{project_id}", response_model=schemas.ProjectOut, summary="Get one submitted project (public)")
 def get_project(project_id: str, db: Session = Depends(get_db)):
     project = db.get(models.Project, project_id)
     if not project or project.status != "submitted":

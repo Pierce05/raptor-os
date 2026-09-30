@@ -1,11 +1,15 @@
+import logging
+
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
+
 from . import config
 from .database import Base, engine, SessionLocal
 from . import audit
-from .routers import auth, gallery, teams, projects, judge, organizer
+from .routers import auth, gallery, teams, projects, judge, organizer, community, organizer_community, records as records_routes
+from .routers import insight
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,7 +24,21 @@ try:
 finally:
     _startup_db.close()
 
-app = FastAPI(title="RAPTOR-OS")
+if config.RECORD_SIGNING_KEY == config.DEFAULT_RECORD_SIGNING_KEY:
+    logging.getLogger("uvicorn.error").warning(
+        "RECORD_SIGNING_KEY is unset: signing judge records with the public dev default. "
+        "Set RECORD_SIGNING_KEY to a real secret before issuing records."
+    )
+
+app = FastAPI(
+    title="RAPTOR-OS",
+    version="1.0.0",
+    description="Hackathon submission and judging portal. See API.md.",
+    # nginx proxies only /api, so the schema and docs must live under it.
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax")
 app.add_middleware(
@@ -44,8 +62,13 @@ app.include_router(teams.router)
 app.include_router(projects.router)
 app.include_router(judge.router)
 app.include_router(organizer.router)
+app.include_router(community.router)
+app.include_router(organizer_community.router)
+app.include_router(records_routes.organizer_router)
+app.include_router(records_routes.judge_router)
+app.include_router(records_routes.public_router)
+app.include_router(insight.router)
 
-
-@app.get("/api/health")
+@app.get("/api/health", tags=["system"], summary="Liveness check")
 def health():
     return {"status": "ok"}

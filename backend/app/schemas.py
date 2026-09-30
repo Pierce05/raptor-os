@@ -12,6 +12,13 @@ class MeResponse(BaseModel):
     email: str
     role: str
     display_name: str
+    event_id: str | None = None
+    team_id: str | None = None
+    team_name: str | None = None
+
+class EventSettingsUpdate(BaseModel):
+    submission_opens_at: datetime | None = None
+    submission_closes_at: datetime | None = None
 
 
 class ProjectCreate(BaseModel):
